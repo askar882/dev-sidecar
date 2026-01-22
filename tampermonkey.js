@@ -71,7 +71,7 @@
 		let cssContent = `
 .___ds-tampermonkey___{
 	position: fixed;
-	right: 10px;
+	right: 20px;
 	top: 30%;
 	z-index: 9999;
 	width: 36px;
