@@ -8,7 +8,11 @@ export default function Footer({version = 'dev'}) {
 			<Text color={theme.colors.muted}>
 				©2020-2026 docmirror.cn — {version}
 			</Text>
-			<Text color={theme.colors.muted}>by Greper, WangLiang, CuteOmega</Text>
+			<Text color={theme.colors.muted}>
+				by <a href="https://github.com/greper">Greper</a>,{' '}
+				<a href="https://github.com/wangliang181230">WangLiang</a>,{' '}
+				<a href="https://github.com/cute-omega">CuteOmega</a>
+			</Text>
 		</Box>
 	);
 }
