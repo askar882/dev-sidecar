@@ -1,8 +1,8 @@
-import { each, isArray, isEmpty, mergeWith } from 'lodash'
-import log from './util.log.server'
+import lodash from 'lodash'
+import log from './util.log.server.js'
 import { deleteNullItems } from '@docmirror/dev-sidecar/src/merge.js'
 
-function isMatched (url, regexp) {
+function isMatched(url, regexp) {
   if (regexp === '.*' || regexp === '*' || regexp === 'true' || regexp === true) {
     return [url]
   }
@@ -19,20 +19,20 @@ function isMatched (url, regexp) {
   }
 }
 
-function domainRegexply (target) {
+function domainRegexply(target) {
   if (target === '.*' || target === '*' || target === 'true' || target === true) {
     return '^.*$'
   }
   return `^${target.replace(/\./g, '\\.').replace(/\*/g, '.*')}$`
 }
 
-function domainMapRegexply (hostMap) {
+function domainMapRegexply(hostMap) {
   if (hostMap == null) {
     return { origin: {} }
   }
   const regexpMap = {}
   const origin = {} // 用于快速匹配，见matchHostname、matchHostnameAll方法
-  each(hostMap, (value, domain) => {
+  lodash.forEach(hostMap, (value, domain) => {
     try {
       // 将域名匹配串格式如 `.xxx.com` 转换为 `*.xxx.com`
       if (domain[0] === '.') {
@@ -60,7 +60,7 @@ function domainMapRegexply (hostMap) {
   return regexpMap
 }
 
-function matchHostname (hostMap, hostname, action) {
+function matchHostname(hostMap, hostname, action) {
   // log.error('matchHostname:', action, hostMap)
 
   if (hostMap == null) {
@@ -107,15 +107,15 @@ function matchHostname (hostMap, hostname, action) {
   log.debug(`matchHostname: ${action}: '${hostname}' Not-Matched`)
 }
 
-function merge (oldObj, newObj) {
-  return mergeWith(oldObj, newObj, (objValue, srcValue) => {
-    if (isArray(objValue)) {
+function merge(oldObj, newObj) {
+  return lodash.mergeWith(oldObj, newObj, (objValue, srcValue) => {
+    if (lodash.isArray(objValue)) {
       return srcValue
     }
   })
 }
 
-function matchHostnameAll (hostMap, hostname, action) {
+function matchHostnameAll(hostMap, hostname, action) {
   // log.debug('matchHostname-all:', action, hostMap)
 
   if (hostMap == null) {
@@ -187,7 +187,7 @@ function matchHostnameAll (hostMap, hostname, action) {
     values = merge(values, value)
   }
 
-  if (!isEmpty(values)) {
+  if (!lodash.isEmpty(values)) {
     deleteNullItems(values)
     log.info(`matchHostname-all: ${action}: '${hostname}':`, JSON.stringify(values))
     return values

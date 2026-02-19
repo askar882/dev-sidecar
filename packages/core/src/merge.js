@@ -7,7 +7,7 @@ import lodash from 'lodash'
  * @param newObj
  * @returns {{}|*}
  */
-function doDiff (oldObj, newObj) {
+export function doDiff(oldObj, newObj) {
   if (newObj == null) {
     return oldObj
   }
@@ -63,7 +63,7 @@ function doDiff (oldObj, newObj) {
   return diffObj
 }
 
-function deleteNullItems (target) {
+export function deleteNullItems(target) {
   lodash.forEach(target, (item, key) => {
     if (item == null || item === '[delete]') {
       delete target[key]
@@ -74,14 +74,16 @@ function deleteNullItems (target) {
   })
 }
 
+export function doMerge(oldObj, newObj) {
+  return lodash.mergeWith(oldObj, newObj, (objValue, srcValue) => {
+    if (lodash.isArray(objValue)) {
+      return srcValue
+    }
+  })
+}
+
 export default {
-  doMerge (oldObj, newObj) {
-    return lodash.mergeWith(oldObj, newObj, (objValue, srcValue) => {
-      if (lodash.isArray(objValue)) {
-        return srcValue
-      }
-    })
-  },
+  doMerge,
   doDiff,
   deleteNullItems,
 }

@@ -1,0 +1,13 @@
+{
+  "name": "dev-sidecar-tui",
+  "author": "CuteOmega",
+  "license": "MPL-2.0",
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "dependencies": {
+    "ink": "^6.8.0",
+    "react": "^19.2.4"
+  }
+}

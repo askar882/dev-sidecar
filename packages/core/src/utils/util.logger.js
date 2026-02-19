@@ -1,13 +1,13 @@
 import path from 'node:path'
 import log4js from 'log4js'
 import logOrConsole from './util.log-or-console.js'
-import defaultConfig from '../config'
+import defaultConfig from '../config/index.js'
 const configFromFiles = defaultConfig.configFromFiles
 
 // 日志级别
 const level = process.env.NODE_ENV === 'development' ? 'debug' : 'info'
 
-function getDefaultConfigBasePath () {
+function getDefaultConfigBasePath() {
   if (configFromFiles.app.logFileSavePath) {
     let logFileSavePath = configFromFiles.app.logFileSavePath
     if (logFileSavePath.endsWith('/') || logFileSavePath.endsWith('\\')) {
@@ -36,7 +36,7 @@ const appenderConfig = {
 let log = null
 
 // 设置一组日志配置
-function log4jsConfigure (categories) {
+function log4jsConfigure(categories) {
   if (log != null) {
     log.error('当前进程已经设置过日志配置，无法再设置更多日志配置:', categories)
     return
@@ -65,30 +65,32 @@ function log4jsConfigure (categories) {
   log.info(`设置日志配置完成，进程ID: ${process.pid}，categories：[${categories}]，config:`, JSON.stringify(config))
 }
 
+export function getLogger(category) {
+  if (!category) {
+    if (log) {
+      log.error('未指定日志类型，无法配置并获取日志对象！！！')
+    }
+    throw new Error('未指定日志类型，无法配置并获取日志对象！！！')
+  }
+
+  if (category === 'core' || category === 'gui') {
+    // core 和 gui 的日志配置，因为它们在同一进程中，所以一起配置，且只能配置一次
+    if (log == null) {
+      log4jsConfigure(['core', 'gui'])
+    }
+
+    return log4js.getLogger(category)
+  } else {
+    if (log == null) {
+      log4jsConfigure([category])
+    } else if (category !== log.category) {
+      log.error(`当前进程已经设置过日志配置，无法再设置 "${category}" 的配置，先临时返回 "${log.category}" 的 log 进行日志记录。如果与其他类型的日志在同一进程中写入，请参照 core 和 gui 一起配置`)
+    }
+
+    return log
+  }
+}
+
 export default {
-  getLogger (category) {
-    if (!category) {
-      if (log) {
-        log.error('未指定日志类型，无法配置并获取日志对象！！！')
-      }
-      throw new Error('未指定日志类型，无法配置并获取日志对象！！！')
-    }
-
-    if (category === 'core' || category === 'gui') {
-      // core 和 gui 的日志配置，因为它们在同一进程中，所以一起配置，且只能配置一次
-      if (log == null) {
-        log4jsConfigure(['core', 'gui'])
-      }
-
-      return log4js.getLogger(category)
-    } else {
-      if (log == null) {
-        log4jsConfigure([category])
-      } else if (category !== log.category) {
-        log.error(`当前进程已经设置过日志配置，无法再设置 "${category}" 的配置，先临时返回 "${log.category}" 的 log 进行日志记录。如果与其他类型的日志在同一进程中写入，请参照 core 和 gui 一起配置`)
-      }
-
-      return log
-    }
-  },
+  getLogger,
 }

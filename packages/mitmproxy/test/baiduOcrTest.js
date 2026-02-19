@@ -1,4 +1,7 @@
-import { ocr as AipOcrClient } from 'baidu-aip-sdk'
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
+const { ocr: AipOcrClient } = require('baidu-aip-sdk')
 
 // 设置APPID/AK/SK
 const APP_ID = '101474620'
