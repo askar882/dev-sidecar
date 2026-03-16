@@ -7,6 +7,7 @@ const event = require('../../event')
 const status = require('../../status')
 const jsonApi = require('@docmirror/mitmproxy/src/json')
 const log = require('../../utils/util.log.core')
+const runtimeState = require('../../runtime-state')
 
 let server = null
 function fireStatus (status) {
@@ -91,6 +92,7 @@ const serverApi = {
         serverProcess.send({ type: 'action', event: { key: 'close' } })
       },
     }
+    runtimeState.setServerPid(serverProcess.pid)
     serverProcess.on('beforeExit', (code) => {
       log.warn('server process beforeExit, code:', code)
     })
@@ -98,6 +100,8 @@ const serverApi = {
       log.warn(`server process SIGPIPE, code: ${code}, signal:`, signal)
     })
     serverProcess.on('exit', (code, signal) => {
+      runtimeState.clearServerPid()
+      fireStatus(false)
       log.warn(`server process exit, code: ${code}, signal:`, signal)
     })
     serverProcess.on('uncaughtException', (err, origin) => {
@@ -125,6 +129,7 @@ const serverApi = {
       server.process.kill('SIGINT')
       await sleep(1000)
     }
+    runtimeState.clearServerPid()
     fireStatus(false)
   },
   async close () {

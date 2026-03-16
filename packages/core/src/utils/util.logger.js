@@ -6,6 +6,7 @@ const configFromFiles = defaultConfig.configFromFiles
 
 // 日志级别
 const level = process.env.NODE_ENV === 'development' ? 'debug' : 'info'
+const stdAppenderType = 'stderr'
 
 function getDefaultConfigBasePath () {
   if (configFromFiles.app.logFileSavePath) {
@@ -44,7 +45,7 @@ function log4jsConfigure (categories) {
 
   const config = {
     appenders: {
-      std: { type: 'stdout' },
+      std: { type: stdAppenderType },
     },
     categories: {
       default: { appenders: ['std'], level },

@@ -1,4 +1,5 @@
 const dateUtil = require('./util.date')
+const util = require('node:util')
 
 let log = console
 
@@ -43,7 +44,7 @@ function printBackups () {
 
 function _doLog (fun, args) {
   if (log === console) {
-    log[fun](...[`[${fun.toUpperCase()}]`, ...args])
+    process.stderr.write(`${util.format(...[`[${fun.toUpperCase()}]`, ...args])}\n`)
     backup(fun, args) // 控制台日志备份起来
   } else {
     log[fun](...args)

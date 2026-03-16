@@ -168,6 +168,7 @@ const NodePlugin = function (context) {
 
     async unsetProxy () {
       const command = config.get().plugin.node.setting.command || 'npm'
+      const nodePluginConfig = config.get().plugin.node
 
       const cmds = [
         `${command} config  delete proxy`,
@@ -176,6 +177,18 @@ const NodePlugin = function (context) {
         `${command} config  delete strict-ssl`,
       ]
       const ret = await shell.exec(cmds, { type: 'cmd' })
+
+      const env = []
+      if (nodePluginConfig.setting.NODE_EXTRA_CA_CERTS) {
+        env.push({ key: 'NODE_EXTRA_CA_CERTS', value: null })
+      }
+      if (nodePluginConfig.setting.NODE_TLS_REJECT_UNAUTHORIZED) {
+        env.push({ key: 'NODE_TLS_REJECT_UNAUTHORIZED', value: null })
+      }
+      if (env.length > 0) {
+        await shell.setSystemEnv({ list: env })
+      }
+
       event.fire('status', { key: 'plugin.node.enabled', value: false })
       log.info('关闭【NPM】代理成功')
       return ret

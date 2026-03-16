@@ -20,11 +20,33 @@ const executor = {
     }
     return map
   },
-  async linux (exec, { port }) {
-    throw new Error('暂未实现此功能')
+  async linux (exec) {
+    const ret = await exec(['printenv'])
+    const map = {}
+    if (ret != null) {
+      const lines = ret.split('\n')
+      for (const item of lines) {
+        const index = item.indexOf('=')
+        if (index > 0) {
+          map[item.substring(0, index).trim()] = item.substring(index + 1).trim()
+        }
+      }
+    }
+    return map
   },
-  async mac (exec, { port }) {
-    throw new Error('暂未实现此功能')
+  async mac (exec) {
+    const ret = await exec(['printenv'])
+    const map = {}
+    if (ret != null) {
+      const lines = ret.split('\n')
+      for (const item of lines) {
+        const index = item.indexOf('=')
+        if (index > 0) {
+          map[item.substring(0, index).trim()] = item.substring(index + 1).trim()
+        }
+      }
+    }
+    return map
   },
 }
 

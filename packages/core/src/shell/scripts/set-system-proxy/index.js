@@ -8,6 +8,7 @@ const Registry = require('winreg')
 const log = require('../../../utils/util.log.core')
 const Shell = require('../../shell')
 const extraPath = require('../extra-path')
+const setSystemEnv = require('../set-system-env')
 const dateUtil = require('../../../utils/util.date')
 
 const execute = Shell.execute
@@ -183,6 +184,22 @@ function getProxyExcludeIpStr (split) {
   return excludeIpStr
 }
 
+async function setProxyEnvFallback ({ ip, port, enableHttp }) {
+  const list = []
+  if (ip != null) {
+    list.push({ key: 'HTTPS_PROXY', value: `http://${ip}:${port}/` })
+    if (enableHttp) {
+      list.push({ key: 'HTTP_PROXY', value: `http://${ip}:${port - 1}/` })
+    } else {
+      list.push({ key: 'HTTP_PROXY', value: null })
+    }
+  } else {
+    list.push({ key: 'HTTPS_PROXY', value: null })
+    list.push({ key: 'HTTP_PROXY', value: null })
+  }
+  await setSystemEnv({ list })
+}
+
 const executor = {
   async windows (exec, params = {}) {
     const { ip, port, setEnv } = params
@@ -287,79 +304,60 @@ const executor = {
   },
   async linux (exec, params = {}) {
     const { ip, port } = params
-    if (ip != null) { // 设置代理
-      // 延迟加载config
-      loadConfig()
+    loadConfig()
+    const proxyHttpEnabled = !!config.get().proxy.proxyHttp
+    try {
+      if (ip != null) { // 设置代理
+        const setProxyCmd = [
+          'gsettings set org.gnome.system.proxy mode manual',
+          `gsettings set org.gnome.system.proxy.https host ${ip}`,
+          `gsettings set org.gnome.system.proxy.https port ${port}`,
+        ]
+        if (proxyHttpEnabled) {
+          setProxyCmd.push(`gsettings set org.gnome.system.proxy.http host ${ip}`)
+          setProxyCmd.push(`gsettings set org.gnome.system.proxy.http port ${port - 1}`)
+        } else {
+          setProxyCmd.push('gsettings set org.gnome.system.proxy.http host \'\'')
+          setProxyCmd.push('gsettings set org.gnome.system.proxy.http port 0')
+        }
 
-      // https
-      const setProxyCmd = [
-        'gsettings set org.gnome.system.proxy mode manual',
-        `gsettings set org.gnome.system.proxy.https host ${ip}`,
-        `gsettings set org.gnome.system.proxy.https port ${port}`,
-      ]
-      // http
-      if (config.get().proxy.proxyHttp) {
-        setProxyCmd.push(`gsettings set org.gnome.system.proxy.http host ${ip}`)
-        setProxyCmd.push(`gsettings set org.gnome.system.proxy.http port ${port - 1}`)
+        const excludeIpStr = getProxyExcludeIpStr('\', \'')
+        setProxyCmd.push(`gsettings set org.gnome.system.proxy ignore-hosts "['${excludeIpStr}']"`)
+        await exec(setProxyCmd)
       } else {
-        setProxyCmd.push('gsettings set org.gnome.system.proxy.http host \'\'')
-        setProxyCmd.push('gsettings set org.gnome.system.proxy.http port 0')
+        await exec(['gsettings set org.gnome.system.proxy mode none'])
       }
-
-      // 设置排除域名（ignore-hosts）
-      const excludeIpStr = getProxyExcludeIpStr('\', \'')
-      setProxyCmd.push(`gsettings set org.gnome.system.proxy ignore-hosts "['${excludeIpStr}']"`)
-
-      await exec(setProxyCmd)
-    } else { // 关闭代理
-      const setProxyCmd = [
-        'gsettings set org.gnome.system.proxy mode none',
-      ]
-      await exec(setProxyCmd)
+    } catch (error) {
+      log.warn('Linux 系统代理设置失败（可能非 GNOME 或无 gsettings），回退为环境变量模式:', error)
+      await setProxyEnvFallback({ ip, port, enableHttp: proxyHttpEnabled })
     }
   },
   async mac (exec, params = {}) {
-    // exec = _exec
-    let wifiAdaptor = await exec('sh -c "networksetup -listnetworkserviceorder | grep `route -n get 0.0.0.0 | grep \'interface\' | cut -d \':\' -f2` -B 1 | head -n 1 "')
-    wifiAdaptor = wifiAdaptor.trim()
-    wifiAdaptor = wifiAdaptor.substring(wifiAdaptor.indexOf(' ')).trim()
     const { ip, port } = params
-    if (ip != null) { // 设置代理
-      // 延迟加载config
-      loadConfig()
+    loadConfig()
+    const proxyHttpEnabled = !!config.get().proxy.proxyHttp
+    try {
+      let wifiAdaptor = await exec('sh -c "networksetup -listnetworkserviceorder | grep `route -n get 0.0.0.0 | grep \'interface\' | cut -d \':\' -f2` -B 1 | head -n 1 "')
+      wifiAdaptor = wifiAdaptor.trim()
+      wifiAdaptor = wifiAdaptor.substring(wifiAdaptor.indexOf(' ')).trim()
 
-      // https
-      await exec(`networksetup -setsecurewebproxy "${wifiAdaptor}" ${ip} ${port}`)
-      // http
-      if (config.get().proxy.proxyHttp) {
-        await exec(`networksetup -setwebproxy "${wifiAdaptor}" ${ip} ${port - 1}`)
+      if (ip != null) { // 设置代理
+        await exec(`networksetup -setsecurewebproxy "${wifiAdaptor}" ${ip} ${port}`)
+        if (proxyHttpEnabled) {
+          await exec(`networksetup -setwebproxy "${wifiAdaptor}" ${ip} ${port - 1}`)
+        } else {
+          await exec(`networksetup -setwebproxystate "${wifiAdaptor}" off`)
+        }
+
+        const excludeIpStr = getProxyExcludeIpStr('" "')
+        await exec(`networksetup -setproxybypassdomains "${wifiAdaptor}" "${excludeIpStr}"`)
       } else {
+        await exec(`networksetup -setsecurewebproxystate "${wifiAdaptor}" off`)
         await exec(`networksetup -setwebproxystate "${wifiAdaptor}" off`)
       }
-
-      // 设置排除域名
-      const excludeIpStr = getProxyExcludeIpStr('" "')
-      await exec(`networksetup -setproxybypassdomains "${wifiAdaptor}" "${excludeIpStr}"`)
-
-      // const setEnv = `cat <<ENDOF >>  ~/.zshrc
-      // export http_proxy="http://${ip}:${port}"
-      // export https_proxy="http://${ip}:${port}"
-      // ENDOF
-      // source ~/.zshrc
-      // `
-      // await exec(setEnv)
-    } else { // 关闭代理
-      // https
-      await exec(`networksetup -setsecurewebproxystate "${wifiAdaptor}" off`)
-      // http
-      await exec(`networksetup -setwebproxystate "${wifiAdaptor}" off`)
-
-      // const removeEnv = `
-      // sed -ie '/export http_proxy/d' ~/.zshrc
-      // sed -ie '/export https_proxy/d' ~/.zshrc
-      // source ~/.zshrc
-      // `
-      // await exec(removeEnv)
+    } catch (error) {
+      log.warn('macOS 系统代理设置失败（可能无 networksetup 或权限不足），回退为环境变量模式:', error)
+      await setProxyEnvFallback({ ip, port, enableHttp: proxyHttpEnabled })
     }
   },
 }

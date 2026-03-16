@@ -6,9 +6,12 @@ const PipPlugin = function (context) {
     async start () {
       await api.setRegistry({ registry: config.get().plugin.pip.setting.registry })
       await api.setTrustedHost(config.get().plugin.pip.setting.trustedHost)
+      event.fire('status', { key: 'plugin.pip.enabled', value: true })
     },
 
     async close () {
+      await api.unsetPipEnv(['index-url', 'trusted-host'])
+      event.fire('status', { key: 'plugin.pip.enabled', value: false })
     },
 
     async restart () {

@@ -5,6 +5,7 @@ const modules = require('./modules')
 const shell = require('./shell')
 const status = require('./status')
 const log = require('./utils/util.log.core')
+const runtime = require('./runtime-api')
 
 const context = {
   config,
@@ -135,6 +136,7 @@ const api = {
   server,
   proxy,
   plugin,
+  runtime,
   log,
 }
 module.exports = {
