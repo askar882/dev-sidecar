@@ -1,5 +1,6 @@
 const dateUtil = require('./util.date')
 const util = require('node:util')
+const isCli2LogTarget = process.env.DEV_SIDECAR_LOG_TARGET === 'cli2'
 
 let log = console
 
@@ -44,7 +45,9 @@ function printBackups () {
 
 function _doLog (fun, args) {
   if (log === console) {
-    process.stderr.write(`${util.format(...[`[${fun.toUpperCase()}]`, ...args])}\n`)
+    if (!isCli2LogTarget) {
+      process.stderr.write(`${util.format(...[`[${fun.toUpperCase()}]`, ...args])}\n`)
+    }
     backup(fun, args) // 控制台日志备份起来
   } else {
     log[fun](...args)

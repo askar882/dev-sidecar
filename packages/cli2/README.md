@@ -166,6 +166,7 @@ node packages/cli2/cli.js proxy status --json
 - `managedByDevSidecar` 为 `false` 时，通常表示当前代理或端口状态无法确认归属于 `dev-sidecar`
 - `plugin.enabled` 表示配置上已启用；`plugin.running` 表示运行态上已启动，两者不是同一个概念
 - `proxy stop --server` 只会尝试停止已确认属于 `dev-sidecar` 的服务进程，不会再按端口盲杀未知进程
+- `cli2` 运行日志默认仅写文件，不输出到命令结果流；日志文件为 `~/.dev-sidecar/logs/cli2.log` 与 `~/.dev-sidecar/logs/core.cli2.log`，与 GUI 的 `core.log/gui.log` 分离
 
 ## 下一步：cli2 与 core 联合打包（建议）
 

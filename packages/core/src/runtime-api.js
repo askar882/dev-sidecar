@@ -32,7 +32,7 @@ function terminatePid (pid, signal = 'SIGTERM') {
 }
 
 async function isPortInUse (port) {
-  const connectLocalhost = new Promise((resolveResult) => {
+  return new Promise((resolveResult) => {
     const socket = net.createConnection({ host: '127.0.0.1', port })
     socket.setTimeout(500)
     socket.once('connect', () => {
@@ -45,19 +45,6 @@ async function isPortInUse (port) {
     })
     socket.once('error', () => resolveResult(false))
   })
-
-  const bindCheck = new Promise((resolveResult) => {
-    const server = net.createServer()
-    server.once('error', () => resolveResult(true))
-    server.once('listening', () => {
-      server.close()
-      resolveResult(false)
-    })
-    server.listen(port)
-  })
-
-  const [canConnect, bindBusy] = await Promise.all([connectLocalhost, bindCheck])
-  return canConnect || bindBusy
 }
 
 async function waitForPort (port, timeoutMs = 5000, intervalMs = 150) {
@@ -353,14 +340,14 @@ async function startProxyRuntime (api, mitmproxyPath, options = {}) {
   const serverAlreadyRunning = runtimeBeforeStart.server.running
   const foreignPortOccupied = !serverAlreadyRunning && await isPortInUse(port)
 
-  if (foreignPortOccupied) {
+  if (foreignPortOccupied && !reuseExistingServer) {
     throw new Error(`端口 ${port} 已被其他进程占用，无法确认是 dev-sidecar 内核`)
   }
 
   let serverInfo = null
   let reusedServer = false
 
-  if (serverAlreadyRunning && reuseExistingServer) {
+  if ((serverAlreadyRunning || foreignPortOccupied) && reuseExistingServer) {
     reusedServer = true
   } else {
     serverInfo = await api.server.start({ mitmproxyPath })

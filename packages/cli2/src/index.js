@@ -27,6 +27,8 @@ program
   .description('dev-sidecar Agent-Native CLI')
   .version(pkg.version)
 
+process.env.DEV_SIDECAR_LOG_TARGET = 'cli2'
+
 function writeJson (payload) {
   process.stdout.write(`${JSON.stringify(payload)}\n`)
 }

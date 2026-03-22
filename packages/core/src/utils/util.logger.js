@@ -7,6 +7,28 @@ const configFromFiles = defaultConfig.configFromFiles
 // 日志级别
 const level = process.env.NODE_ENV === 'development' ? 'debug' : 'info'
 const stdAppenderType = 'stderr'
+const isCli2LogTarget = process.env.DEV_SIDECAR_LOG_TARGET === 'cli2'
+
+function normalizeCategory (category) {
+  if (isCli2LogTarget && category === 'gui') {
+    return 'cli2'
+  }
+  return category
+}
+
+function getCategoryLogFileName (category) {
+  const normalizedCategory = normalizeCategory(category)
+  if (!isCli2LogTarget) {
+    return `${normalizedCategory}.log`
+  }
+  if (normalizedCategory === 'core') {
+    return 'core.cli2.log'
+  }
+  if (normalizedCategory === 'cli2') {
+    return 'cli2.log'
+  }
+  return `${normalizedCategory}.cli2.log`
+}
 
 function getDefaultConfigBasePath () {
   if (configFromFiles.app.logFileSavePath) {
@@ -44,26 +66,36 @@ function log4jsConfigure (categories) {
   }
 
   const config = {
-    appenders: {
-      std: { type: stdAppenderType },
-    },
-    categories: {
-      default: { appenders: ['std'], level },
-    },
+    appenders: {},
+    categories: {},
   }
 
-  for (const category of categories) {
-    config.appenders[category] = { ...appenderConfig, filename: path.join(basePath, `/${category}.log`) }
-    config.categories[category] = { appenders: [category, 'std'], level }
+  if (!isCli2LogTarget) {
+    config.appenders.std = { type: stdAppenderType }
+  }
+
+  const normalizedCategories = [...new Set(categories.map(normalizeCategory))]
+
+  for (const category of normalizedCategories) {
+    config.appenders[category] = { ...appenderConfig, filename: path.join(basePath, `/${getCategoryLogFileName(category)}`) }
+    config.categories[category] = {
+      appenders: isCli2LogTarget ? [category] : [category, 'std'],
+      level,
+    }
+  }
+
+  config.categories.default = {
+    appenders: isCli2LogTarget ? [normalizedCategories[0]] : ['std'],
+    level,
   }
 
   log4js.configure(config)
 
   // 拿第一个日志类型来logger并设置到log变量中
-  log = log4js.getLogger(categories[0])
+  log = log4js.getLogger(normalizedCategories[0])
   logOrConsole.setLogger(log)
 
-  log.info(`设置日志配置完成，进程ID: ${process.pid}，categories：[${categories}]，config:`, JSON.stringify(config))
+  log.info(`设置日志配置完成，进程ID: ${process.pid}，categories：[${normalizedCategories}]，config:`, JSON.stringify(config))
 }
 
 module.exports = {
@@ -75,16 +107,24 @@ module.exports = {
       throw new Error('未指定日志类型，无法配置并获取日志对象！！！')
     }
 
+    if (isCli2LogTarget && (category === 'core' || category === 'gui' || category === 'cli2')) {
+      if (log == null) {
+        log4jsConfigure(['core', 'cli2'])
+      }
+
+      return log4js.getLogger(normalizeCategory(category))
+    }
+
     if (category === 'core' || category === 'gui') {
       // core 和 gui 的日志配置，因为它们在同一进程中，所以一起配置，且只能配置一次
       if (log == null) {
         log4jsConfigure(['core', 'gui'])
       }
 
-      return log4js.getLogger(category)
+      return log4js.getLogger(normalizeCategory(category))
     } else {
       if (log == null) {
-        log4jsConfigure([category])
+        log4jsConfigure([normalizeCategory(category)])
       } else if (category !== log.category) {
         log.error(`当前进程已经设置过日志配置，无法再设置 "${category}" 的配置，先临时返回 "${log.category}" 的 log 进行日志记录。如果与其他类型的日志在同一进程中写入，请参照 core 和 gui 一起配置`)
       }
